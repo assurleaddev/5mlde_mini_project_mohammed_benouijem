@@ -1,0 +1,13 @@
+{
+  "dataset": "UCI Bike Sharing (Capital Bikeshare, Washington D.C., 2011-2012)",
+  "file": "hour.csv",
+  "rows": 17379,
+  "sha256": "e03de4ee4ef4dc376ac6e04bf829673c6269e8eba5c60fa121640fa2f829504f",
+  "license": "CC BY 4.0",
+  "citation": "Fanaee-T, H. (2013). Bike Sharing Dataset. UCI Machine Learning Repository. https://doi.org/10.24432/C5W894",
+  "sources": [
+    {"name": "uci", "url": "https://archive.ics.uci.edu/static/public/275/bike+sharing+dataset.zip", "format": "zip", "member": "hour.csv"},
+    {"name": "github-mirror", "url": "https://raw.githubusercontent.com/AllenDowney/bayesian-analysis-recipes/master/datasets/bikes/hour.csv", "format": "csv"}
+  ],
+  "columns": ["instant", "dteday", "season", "yr", "mnth", "hr", "holiday", "weekday", "workingday", "weathersit", "temp", "atemp", "hum", "windspeed", "casual", "registered", "cnt"]
+}

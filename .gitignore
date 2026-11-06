@@ -1,0 +1,24 @@
+# Environnements et caches
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# Données : jamais versionnées (voir data/manifest.json et scripts/download_data.py)
+data/raw/*.csv
+data/raw/*.zip
+data/landing/*.csv
+data/quarantine/*
+!data/quarantine/.gitkeep
+data/cache/
+
+# Artefacts produits par les runs
+artifacts/
+mlruns/
+resultats/
+*.joblib
+
+# Secrets et configurations locales
+.env
+config/*.local.json
