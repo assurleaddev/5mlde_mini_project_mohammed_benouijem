@@ -1,0 +1,20 @@
+{
+  "project": "bike-demand",
+  "data": {
+    "raw_path": "../data/raw/hour.csv"
+  },
+  "output": {
+    "runs_dir": "../artifacts/runs"
+  },
+  "split": {
+    "test_days": 28
+  },
+  "seed": 42,
+  "model": {
+    "learning_rate": 0.08,
+    "max_iter": 300,
+    "max_leaf_nodes": 31,
+    "l2_regularization": 0.0,
+    "min_samples_leaf": 20
+  }
+}
