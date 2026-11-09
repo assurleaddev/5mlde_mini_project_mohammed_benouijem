@@ -72,5 +72,5 @@ def test_existing_run_dir_is_refused(project):
 
 def test_duplicates_are_rejected(project, frame):
     write(project, pd.concat([frame, frame.iloc[[0]].assign(instant=99999)]))
-    with pytest.raises(DataValidationError, match="Doublons"):
+    with pytest.raises(DataValidationError, match="unique|Doublons"):
         main(project["config_path"])

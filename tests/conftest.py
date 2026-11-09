@@ -41,8 +41,9 @@ def project(tmp_path, frame):
     frame.to_csv(tmp_path / "data" / "hour.csv", index=False)
     config = {
         "project": "bike-demand-test",
-        "data": {"raw_path": "data/hour.csv"},
-        "output": {"runs_dir": "runs"},
+        "data": {"raw_path": "data/hour.csv", "auto_download": False, "landing_dir": "landing",
+                 "quarantine_dir": "quarantine", "history_until": None},
+        "output": {"runs_dir": "runs", "snapshots_dir": "snapshots", "diagnostics_dir": "diagnostics"},
         "split": {"test_days": 7},
         "seed": 42,
         "model": {"learning_rate": 0.1, "max_iter": 30, "max_leaf_nodes": 15,

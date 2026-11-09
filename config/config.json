@@ -1,10 +1,22 @@
 {
   "project": "bike-demand",
   "data": {
-    "raw_path": "../data/raw/hour.csv"
+    "raw_path": "../data/raw/hour.csv",
+    "manifest_path": "../data/manifest.json",
+    "auto_download": true,
+    "history_until": "2012-06-30",
+    "landing_dir": "../data/landing",
+    "quarantine_dir": "../data/quarantine",
+    "min_snapshot_rows": 1440,
+    "retry": {
+      "max_attempts": 3,
+      "backoff_seconds": 2.0
+    }
   },
   "output": {
-    "runs_dir": "../artifacts/runs"
+    "runs_dir": "../artifacts/runs",
+    "snapshots_dir": "../artifacts/snapshots",
+    "diagnostics_dir": "../artifacts/diagnostics"
   },
   "split": {
     "test_days": 28

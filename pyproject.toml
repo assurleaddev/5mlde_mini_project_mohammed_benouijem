@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Mini-projet 5MLDE : industrialisation d'un modèle de prévision des locations de vélos (UCI Bike Sharing)"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "great-expectations==1.23.2",
     "httpx>=0.28.1",
     "joblib==1.5.1",
     "numpy>=2.0,<2.3",
