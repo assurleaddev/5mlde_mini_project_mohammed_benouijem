@@ -1,0 +1,36 @@
+# Stack locale du mini-projet (versions alignées sur le Compose commun des TPs 5MLDE).
+name: bike-mlops
+
+services:
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v3.16.1
+    restart: unless-stopped
+    entrypoint: ["mlflow"]
+    command:
+      - server
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "7281"
+      - --workers
+      - "1"
+      - --backend-store-uri
+      - sqlite:////mlflow/mlflow.db
+      - --serve-artifacts
+      - --artifacts-destination
+      - /mlflow/artifacts
+      - --allowed-hosts
+      - "localhost:*,127.0.0.1:*,mlflow:7281"
+    ports:
+      - "127.0.0.1:${MLFLOW_PORT:-7281}:7281"
+    volumes:
+      - mlflow_data:/mlflow
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:7281/health', timeout=5)"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+volumes:
+  mlflow_data:
