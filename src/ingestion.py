@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from src import data_validation
+from src import data_validation, tracking
 from src.acquisition import ensure_dataset
 from src.schema import DATE_COLUMN, ID_COLUMN, REQUIRED_COLUMNS, DataValidationError
 from src.utils import resolve, sha256_file, utc_now, write_json
@@ -86,10 +86,25 @@ def upsert(history: pd.DataFrame, batch: pd.DataFrame) -> tuple[pd.DataFrame, in
     return merged.sort_values([DATE_COLUMN, "hr"]).reset_index(drop=True), len(batch) - updated, updated
 
 
+def mlflow_enabled(config: dict) -> bool:
+    return config.get("mlflow", {}).get("enabled", True)
+
+
 def load_data(config_path):
     """Acquérir, fusionner les lots reçus, figer un snapshot et le valider avant tout prétraitement."""
     config = read_config(config_path)
     context = run_context(config)
+    if mlflow_enabled(config):
+        context["mlflow_run_id"] = tracking.start_run(config, context)
+    data = {"config": config, "context": context}
+    with tracking.step(data, "ingestion"):
+        result = _load(config, context)
+    if mlflow_enabled(config):
+        _trace_ingestion(result)
+    return result
+
+
+def _load(config: dict, context: dict) -> dict:
     diagnostics = Path(context["diagnostics_dir"])
     history, provenance = acquire_history(config)
     sources, reports = [provenance], []
@@ -120,6 +135,32 @@ def load_data(config_path):
                                             min_rows=int(config["data"].get("min_snapshot_rows", 24 * 60))))
     write_json(diagnostics / "sources.json", sources)
     # On transmet exactement le DataFrame validé, pas une relecture d'un fichier mutable.
-    context.update(snapshot_path=str(snapshot_path), snapshot_sha256=digest)
+    context.update(snapshot_path=str(snapshot_path), snapshot_sha256=digest, data_origin="uci-replay")
     return {"config": config, "context": context, "snapshot": snapshot, "sources": sources,
             "validation_reports": reports, "id_column": ID_COLUMN}
+
+
+def _trace_ingestion(data: dict) -> None:
+    config, context, run_id = data["config"], data["context"], data["context"]["mlflow_run_id"]
+    batches = [s for s in data["sources"] if s["kind"] == "batch"]
+    tracking.log_params(config, run_id, {
+        "data.history_until": config["data"].get("history_until"),
+        "data.origin": context["data_origin"],
+        "data.snapshot_sha256": context["snapshot_sha256"],
+        "data.batches": ",".join(Path(b["path"]).name for b in batches) or "none",
+        "data.cache_policy": "sha256-verified local copy, download if absent",
+    })
+    tracking.log_metrics(config, run_id, {
+        "data.rows_snapshot": len(data["snapshot"]),
+        "data.rows_history": data["sources"][0]["rows"],
+        "data.rows_added": sum(b["added"] for b in batches),
+        "data.rows_updated": sum(b["updated"] for b in batches),
+    })
+    tracking.set_tags(config, run_id, {"data.snapshot_sha256": context["snapshot_sha256"],
+                                       "data.period_end": str(data["snapshot"][DATE_COLUMN].max())})
+    tracking.log_file(config, run_id, context["snapshot_path"], "data")
+    tracking.log_json(config, run_id, data["sources"], "data/sources.json")
+    for report in data["validation_reports"]:
+        tracking.log_file(config, run_id, report["report_path"], "validation")
+    tracking.log_dataset(config, run_id, data["snapshot"], name=Path(context["snapshot_path"]).name,
+                         context="snapshot", source=context["snapshot_path"])

@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import pandas as pd
 
+from src import tracking
+
 from src.schema import (
     CATEGORICAL_FEATURES, DATE_COLUMN, DOMAINS, FEATURES, ID_COLUMN, NUMERIC_FEATURES, TARGET,
     DataValidationError,
@@ -46,6 +48,26 @@ def temporal_split(frame: pd.DataFrame, test_days: int) -> tuple[pd.DataFrame, p
 
 def preprocess_data(data):
     """Valider, séparer train/test ; les transformations apprises sont ajustées sur train dans le pipeline."""
+    with tracking.step(data, "preprocessing"):
+        prepared = _prepare(data)
+    run_id = data["context"].get("mlflow_run_id")
+    if run_id:
+        info = prepared["preprocessing"]
+        tracking.log_params(data["config"], run_id, {
+            "prep.features.categorical": ",".join(info["categorical"]),
+            "prep.features.numeric": ",".join(info["numeric"]),
+            "prep.excluded_columns": "instant,dteday,casual,registered",
+            "prep.encoding": "OneHotEncoder(handle_unknown=ignore) fit on train",
+            "prep.target_transform": "log1p / expm1",
+            "split.strategy": "temporal", "split.test_days": data["config"]["split"]["test_days"],
+            "split.train_period": "/".join(info["train_period"]), "split.test_period": "/".join(info["test_period"]),
+        })
+        tracking.log_metrics(data["config"], run_id, {"split.train_rows": info["train_rows"],
+                                                      "split.test_rows": info["test_rows"]})
+    return prepared
+
+
+def _prepare(data):
     config = data["config"]
     frame = check_values(data["snapshot"])
     train, test = temporal_split(frame, int(config["split"]["test_days"]))

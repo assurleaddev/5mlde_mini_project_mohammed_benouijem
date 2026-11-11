@@ -10,6 +10,7 @@ from sklearn.ensemble import HistGradientBoostingRegressor
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 
+from src import tracking
 from src.schema import CATEGORICAL_FEATURES, NUMERIC_FEATURES
 
 
@@ -44,9 +45,16 @@ def train_models(prepared_data):
     """Entraîner le modèle et la baseline ; transmettre modèle, données de test et configuration."""
     config = prepared_data["config"]
     seed = int(config["seed"])
-    pipeline = build_pipeline(config["model"], seed)
-    started = time.perf_counter()
-    pipeline.fit(prepared_data["X_train"], prepared_data["y_train"])
-    duration = time.perf_counter() - started
-    baseline = fit_baseline(prepared_data["X_train"], prepared_data["y_train"])
+    with tracking.step(prepared_data, "training"):
+        pipeline = build_pipeline(config["model"], seed)
+        started = time.perf_counter()
+        pipeline.fit(prepared_data["X_train"], prepared_data["y_train"])
+        duration = time.perf_counter() - started
+        baseline = fit_baseline(prepared_data["X_train"], prepared_data["y_train"])
+    run_id = prepared_data["context"].get("mlflow_run_id")
+    if run_id:
+        tracking.log_params(config, run_id, {"seed": seed, "model.algorithm": "HistGradientBoostingRegressor",
+                                             **{f"model.{k}": v for k, v in config["model"].items()},
+                                             "baseline.algorithm": "mean cnt by (hr, workingday)"})
+        tracking.log_metrics(config, run_id, {"training.fit_seconds": duration})
     return {**prepared_data, "pipeline": pipeline, "baseline": baseline, "training_seconds": duration}
