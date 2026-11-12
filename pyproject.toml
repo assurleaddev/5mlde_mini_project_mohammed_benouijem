@@ -4,12 +4,14 @@ version = "0.1.0"
 description = "Mini-projet 5MLDE : industrialisation d'un modèle de prévision des locations de vélos (UCI Bike Sharing)"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "fastapi>=0.139,<0.150",
     "great-expectations==1.23.2",
     "httpx>=0.28.1",
     "joblib==1.5.1",
     "mlflow==3.16.1",
     "numpy>=2.0,<2.3",
     "pandas>=2.2,<2.3",
+    "prefect==3.8.7",
     "scikit-learn==1.6.1",
 ]
 

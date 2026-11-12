@@ -10,7 +10,10 @@ from sklearn.ensemble import HistGradientBoostingRegressor
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 
-from src import tracking
+from prefect import task
+from prefect.cache_policies import NO_CACHE
+
+from src import orchestration, tracking
 from src.schema import CATEGORICAL_FEATURES, NUMERIC_FEATURES
 
 
@@ -41,6 +44,7 @@ def predict_baseline(baseline: dict, X: pd.DataFrame) -> np.ndarray:
     return keys.map(baseline["profile"]).fillna(baseline["fallback"]).to_numpy()
 
 
+@task(name="training", retries=0, timeout_seconds=900, cache_policy=NO_CACHE, persist_result=False)
 def train_models(prepared_data):
     """Entraîner le modèle et la baseline ; transmettre modèle, données de test et configuration."""
     config = prepared_data["config"]
@@ -51,6 +55,7 @@ def train_models(prepared_data):
         pipeline.fit(prepared_data["X_train"], prepared_data["y_train"])
         duration = time.perf_counter() - started
         baseline = fit_baseline(prepared_data["X_train"], prepared_data["y_train"])
+    orchestration.task_logger().info("Modèle entraîné en %.1fs sur %s lignes", duration, len(prepared_data["X_train"]))
     run_id = prepared_data["context"].get("mlflow_run_id")
     if run_id:
         tracking.log_params(config, run_id, {"seed": seed, "model.algorithm": "HistGradientBoostingRegressor",

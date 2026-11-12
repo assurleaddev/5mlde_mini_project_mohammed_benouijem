@@ -3,7 +3,10 @@ from __future__ import annotations
 
 import pandas as pd
 
-from src import tracking
+from prefect import task
+from prefect.cache_policies import NO_CACHE
+
+from src import orchestration, tracking
 
 from src.schema import (
     CATEGORICAL_FEATURES, DATE_COLUMN, DOMAINS, FEATURES, ID_COLUMN, NUMERIC_FEATURES, TARGET,
@@ -46,6 +49,22 @@ def temporal_split(frame: pd.DataFrame, test_days: int) -> tuple[pd.DataFrame, p
     return train, test
 
 
+PREPROCESSING_VERSION = "1.0.0"  # à incrémenter à chaque changement de check_values / temporal_split
+
+
+def _split_cache_key(context, parameters) -> str:
+    """Clé explicite : contenu du snapshot (empreinte), paramètres et version du code de préparation."""
+    return f"split-{parameters['snapshot_sha256']}-{parameters['test_days']}-{PREPROCESSING_VERSION}"
+
+
+@task(name="validate-and-split", cache_key_fn=_split_cache_key, persist_result=True, retries=0)
+def validate_and_split(frame: pd.DataFrame, snapshot_sha256: str, test_days: int):
+    """Calcul pur et déterministe (aucune écriture MLflow) : réutilisable entre deux flows sur le même snapshot."""
+    checked = check_values(frame)
+    return temporal_split(checked, test_days)
+
+
+@task(name="preprocessing", retries=0, timeout_seconds=300, cache_policy=NO_CACHE, persist_result=False)
 def preprocess_data(data):
     """Valider, séparer train/test ; les transformations apprises sont ajustées sur train dans le pipeline."""
     with tracking.step(data, "preprocessing"):
@@ -69,8 +88,13 @@ def preprocess_data(data):
 
 def _prepare(data):
     config = data["config"]
-    frame = check_values(data["snapshot"])
-    train, test = temporal_split(frame, int(config["split"]["test_days"]))
+    test_days = int(config["split"]["test_days"])
+    sha = data["context"].get("snapshot_sha256")
+    if sha and orchestration.flow_run_id():
+        train, test = validate_and_split(data["snapshot"], sha, test_days)
+    else:
+        train, test = temporal_split(check_values(data["snapshot"]), test_days)
+    orchestration.task_logger().info("Split temporel : train=%s, test=%s lignes", len(train), len(test))
     split = pd.concat([
         pd.DataFrame({ID_COLUMN: train[ID_COLUMN], "split": "train"}),
         pd.DataFrame({ID_COLUMN: test[ID_COLUMN], "split": "test"}),

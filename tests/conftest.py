@@ -53,3 +53,11 @@ def project(tmp_path, frame):
     path = tmp_path / "config.json"
     path.write_text(json.dumps(config), encoding="utf-8")
     return {"root": tmp_path, "config_path": path, "config": config}
+
+
+@pytest.fixture(autouse=True, scope="session")
+def prefect_backend():
+    """Serveur Prefect temporaire et isolé pour les tests (les tâches mères sont des tasks Prefect)."""
+    from prefect.testing.utilities import prefect_test_harness
+    with prefect_test_harness(server_startup_timeout=120):
+        yield

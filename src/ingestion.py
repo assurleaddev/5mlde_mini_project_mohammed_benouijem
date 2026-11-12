@@ -9,8 +9,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
+from prefect import task
+from prefect.cache_policies import NO_CACHE
 
-from src import data_validation, tracking
+from src import data_validation, orchestration, tracking
 from src.acquisition import ensure_dataset
 from src.schema import DATE_COLUMN, ID_COLUMN, REQUIRED_COLUMNS, DataValidationError
 from src.utils import resolve, sha256_file, utc_now, write_json
@@ -38,6 +40,8 @@ def run_context(config: dict) -> dict:
             "started_at": utc_now()}
 
 
+@task(name="acquire-history", retries=2, retry_delay_seconds=[5, 20], retry_condition_fn=orchestration.is_transient,
+      timeout_seconds=300, cache_policy=NO_CACHE, persist_result=False)
 def acquire_history(config: dict) -> tuple[pd.DataFrame, dict]:
     """Corpus historique : CSV de référence vérifié par empreinte, téléchargé si absent."""
     base_dir = Path(config["_base_dir"])
@@ -90,17 +94,24 @@ def mlflow_enabled(config: dict) -> bool:
     return config.get("mlflow", {}).get("enabled", True)
 
 
+@task(name="ingestion", retries=0, timeout_seconds=600, cache_policy=NO_CACHE, persist_result=False)
 def load_data(config_path):
     """Acquérir, fusionner les lots reçus, figer un snapshot et le valider avant tout prétraitement."""
     config = read_config(config_path)
     context = run_context(config)
+    context["trigger"] = config.get("trigger", "manual")
     if mlflow_enabled(config):
         context["mlflow_run_id"] = tracking.start_run(config, context)
+        orchestration.register_mlflow_run(config, context)
     data = {"config": config, "context": context}
+    log = orchestration.task_logger()
+    log.info("Run %s démarré (MLflow %s)", context["run_name"], context.get("mlflow_run_id"))
     with tracking.step(data, "ingestion"):
         result = _load(config, context)
     if mlflow_enabled(config):
         _trace_ingestion(result)
+    log.info("Snapshot %s : %s lignes, %s lot(s) fusionné(s)", context["snapshot_sha256"][:12], len(result["snapshot"]),
+             len(result["sources"]) - 1)
     return result
 
 

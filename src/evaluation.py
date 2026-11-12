@@ -9,8 +9,10 @@ import joblib
 import mlflow
 import numpy as np
 from mlflow.models import infer_signature
+from prefect import task
+from prefect.cache_policies import NO_CACHE
 
-from src import qualification, registry, tracking
+from src import orchestration, qualification, registry, tracking
 from src.metrics import regression_metrics, segment_mae
 from src.training import predict_baseline
 from src.utils import publish_dir, sha256_file, utc_now, write_json
@@ -132,6 +134,7 @@ def _publish_mlflow(data: dict, metrics: dict, predictions: np.ndarray, run_dir:
             "promotion": promotion}
 
 
+@task(name="evaluation", retries=0, timeout_seconds=600, cache_policy=NO_CACHE, persist_result=False)
 def evaluate_models(trained_models):
     """Prédire sur test, calculer les métriques, publier le run puis le modèle versionné."""
     data = trained_models
@@ -144,6 +147,6 @@ def evaluate_models(trained_models):
             result.update(mlflow_run_id=run_id, **_publish_mlflow(data, metrics, predictions, run_dir))
             if not data["context"].get("defer_run_close"):
                 tracking.end_run(data["config"], run_id, "FINISHED")
-    logger.info("Run %s : MAE=%.2f (baseline %.2f), qualification=%s", result["run_name"],
+    orchestration.task_logger().info("Run %s : MAE=%.2f (baseline %.2f), qualification=%s", result["run_name"],
                 metrics["model"]["mae"], metrics["baseline"]["mae"], result.get("qualification", "n/a"))
     return result

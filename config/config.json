@@ -9,7 +9,7 @@
     "quarantine_dir": "../data/quarantine",
     "min_snapshot_rows": 1440,
     "retry": {
-      "max_attempts": 3,
+      "max_attempts": 1,
       "backoff_seconds": 2.0
     }
   },
