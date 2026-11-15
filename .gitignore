@@ -22,3 +22,4 @@ resultats/
 # Secrets et configurations locales
 .env
 config/*.local.json
+config/serving_manifest.json
