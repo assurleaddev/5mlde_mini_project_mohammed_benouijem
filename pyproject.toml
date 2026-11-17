@@ -8,6 +8,7 @@ dependencies = [
     "great-expectations==1.23.2",
     "httpx>=0.28.1",
     "joblib==1.5.1",
+    "locust==2.46.6",
     "mlflow==3.16.1",
     "numpy>=2.0,<2.3",
     "pandas>=2.2,<2.3",
