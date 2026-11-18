@@ -102,7 +102,7 @@ def load_data(config_path):
     context["trigger"] = config.get("trigger", "manual")
     if mlflow_enabled(config):
         context["mlflow_run_id"] = tracking.start_run(config, context)
-        orchestration.register_mlflow_run(config, context)
+    orchestration.register_mlflow_run(config, context)
     data = {"config": config, "context": context}
     log = orchestration.task_logger()
     log.info("Run %s démarré (MLflow %s)", context["run_name"], context.get("mlflow_run_id"))
@@ -146,7 +146,8 @@ def _load(config: dict, context: dict) -> dict:
                                             min_rows=int(config["data"].get("min_snapshot_rows", 24 * 60))))
     write_json(diagnostics / "sources.json", sources)
     # On transmet exactement le DataFrame validé, pas une relecture d'un fichier mutable.
-    context.update(snapshot_path=str(snapshot_path), snapshot_sha256=digest, data_origin="uci-replay")
+    context.update(snapshot_path=str(snapshot_path), snapshot_sha256=digest, data_origin="uci-replay",
+                   snapshot_rows=int(len(snapshot)), batches=len(sources) - 1)
     return {"config": config, "context": context, "snapshot": snapshot, "sources": sources,
             "validation_reports": reports, "id_column": ID_COLUMN}
 

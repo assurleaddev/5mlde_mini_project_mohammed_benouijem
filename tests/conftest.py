@@ -47,6 +47,7 @@ def project(tmp_path, frame):
         "split": {"test_days": 7},
         "seed": 42,
         "mlflow": {"enabled": False},
+        "tracing": {"enabled": False},
         "model": {"learning_rate": 0.1, "max_iter": 30, "max_leaf_nodes": 15,
                   "l2_regularization": 0.0, "min_samples_leaf": 20},
     }

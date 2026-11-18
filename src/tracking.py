@@ -116,6 +116,7 @@ def step(data: dict, name: str):
     try:
         yield
     except Exception as exc:
+        data["context"].setdefault("failed_step", name)
         if run_id:
             try:
                 set_tags(config, run_id, {"pipeline.failed_step": name, "pipeline.error": f"{type(exc).__name__}: {exc}"})

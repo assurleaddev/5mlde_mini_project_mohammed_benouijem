@@ -35,5 +35,8 @@
     "experiment": "5mlde-bike-demand",
     "model_name": "bike-demand-regressor",
     "auto_promote": true
+  },
+  "tracing": {
+    "enabled": true
   }
 }

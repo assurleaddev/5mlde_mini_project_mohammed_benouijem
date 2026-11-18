@@ -82,6 +82,29 @@ CREATE TABLE IF NOT EXISTS tracing.feedbacks (
 );
 CREATE INDEX IF NOT EXISTS feedbacks_time_idx ON tracing.feedbacks (created_at);
 
+-- Une exécution du pipeline d'entraînement (écrite par les hooks du flow Prefect, succès comme échec).
+CREATE TABLE IF NOT EXISTS tracing.pipeline_runs (
+    run_name        text PRIMARY KEY,
+    flow_run_id     text,
+    mlflow_run_id   text,
+    trigger         text NOT NULL DEFAULT 'manual',
+    status          text NOT NULL CHECK (status IN ('COMPLETED', 'FAILED', 'CRASHED', 'CANCELLED')),
+    failed_step     text,
+    error           text,
+    started_at      timestamptz NOT NULL,
+    ended_at        timestamptz NOT NULL,
+    duration_s      double precision CHECK (duration_s >= 0),
+    snapshot_rows   integer,
+    batches         integer,
+    test_mae        double precision,
+    baseline_mae    double precision,
+    model_name      text,
+    model_version   text,
+    qualification   text,
+    promoted        boolean
+);
+CREATE INDEX IF NOT EXISTS pipeline_runs_time_idx ON tracing.pipeline_runs (started_at);
+
 GRANT SELECT, INSERT ON ALL TABLES IN SCHEMA tracing TO api_writer;
 GRANT SELECT ON ALL TABLES IN SCHEMA tracing TO grafana_reader;
 

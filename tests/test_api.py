@@ -37,7 +37,8 @@ def client():
                                "test://stub", "production-ready", StubModel())
     original = service.load_model
     service.load_model = lambda settings: stub
-    with TestClient(api.app) as test_client:
+    # Les données des tests sont marquées (campagne « pytest ») et exclues du dashboard.
+    with TestClient(api.app, headers={"X-Test-Campaign": "pytest"}) as test_client:
         yield test_client
     service.load_model = original
 
@@ -96,3 +97,13 @@ def test_storage_failure_gives_503_and_no_false_success(client, monkeypatch):
     rid = response.json()["request_id"]
     assert count("SELECT count(*) FROM tracing.predictions WHERE request_id = %s", rid) == 0
     assert count("SELECT http_status FROM tracing.api_requests WHERE request_id = %s", rid) == 503
+
+
+def test_pipeline_run_is_recorded_for_the_dashboard():
+    from src import run_tracing
+    context = {"run_name": f"test-{uuid.uuid4().hex[:8]}", "started_at": "2026-11-19T10:00:00Z",
+               "failed_step": "ingestion", "trigger": "test"}
+    run_tracing.record({}, context, "FAILED", error="DataValidationError: lot invalide")
+    run_tracing.record({}, context, "FAILED", error="rejeu")  # même run : aucune seconde ligne
+    assert count("SELECT count(*) FROM tracing.pipeline_runs WHERE run_name = %s AND failed_step = 'ingestion'",
+                 context["run_name"]) == 1

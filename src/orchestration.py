@@ -3,12 +3,12 @@ from __future__ import annotations
 
 import logging
 
-from src import tracking
+from src import run_tracing, tracking
 
 logger = logging.getLogger(__name__)
 
-# flow_run_id -> (config, mlflow_run_id) : renseigné par load_data, consommé par les hooks d'état.
-_OPEN_RUNS: dict[str, tuple[dict, str]] = {}
+# flow_run_id -> (config, context) : renseigné par load_data, consommé par les hooks d'état.
+_OPEN_RUNS: dict[str, tuple[dict, dict]] = {}
 
 
 def flow_run_id() -> str | None:
@@ -30,11 +30,13 @@ def task_logger():
 def register_mlflow_run(config: dict, context: dict) -> None:
     """Appelé dès que le run MLflow existe : tag croisé, tags du flow run et clôture différée aux hooks."""
     run_id, fr_id = context.get("mlflow_run_id"), flow_run_id()
-    if not run_id or not fr_id:
+    if not fr_id:
+        return
+    context["prefect_flow_run_id"] = fr_id
+    _OPEN_RUNS[fr_id] = (config, context)
+    if not run_id:
         return
     context["defer_run_close"] = True
-    context["prefect_flow_run_id"] = fr_id
-    _OPEN_RUNS[fr_id] = (config, run_id)
     tracking.set_tags(config, run_id, {"prefect.flow_run_id": fr_id})
     try:
         from prefect.client.orchestration import get_client
@@ -46,18 +48,29 @@ def register_mlflow_run(config: dict, context: dict) -> None:
         logger.warning("Impossible de taguer le flow run : %s", exc)
 
 
-def _close(flow_run, status: str) -> None:
-    config, run_id = _OPEN_RUNS.pop(str(flow_run.id), (None, None))
-    if run_id:
-        tracking.close_run_if_open(config, run_id, status)
+def _close(flow_run, state, status: str) -> None:
+    config, context = _OPEN_RUNS.pop(str(flow_run.id), (None, None))
+    if context is None:
+        return
+    if context.get("mlflow_run_id"):
+        tracking.close_run_if_open(config, context["mlflow_run_id"], "FINISHED" if status == "COMPLETED" else "FAILED")
+    result, error = None, None
+    if status == "COMPLETED":
+        try:
+            result = state.result()
+        except Exception:
+            result = None
+    else:
+        error = state.message
+    run_tracing.record(config, context, status, result if isinstance(result, dict) else None, error)
 
 
 def on_flow_failure(flow, flow_run, state) -> None:
-    _close(flow_run, "FAILED")
+    _close(flow_run, state, "CRASHED" if state.is_crashed() else "CANCELLED" if state.is_cancelled() else "FAILED")
 
 
 def on_flow_completion(flow, flow_run, state) -> None:
-    _close(flow_run, "FINISHED")
+    _close(flow_run, state, "COMPLETED")
 
 
 def is_transient(task, task_run, state) -> bool:
