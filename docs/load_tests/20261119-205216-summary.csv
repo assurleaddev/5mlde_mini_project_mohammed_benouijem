@@ -1,0 +1,7 @@
+workers,scenario,users,repeat,endpoint,requests,rps,items_per_s,p50_ms,p95_ms,p99_ms,error_rate,api_cpu_pct_mean,host_cpu_pct_mean,api_rss_mb_max,campaign,slo_ok
+1,unit,80,1,/predict,1520,52.36,52.4,510.0,1000.0,1200.0,0.0,84.3,50.1,294.0,lt-w1-unit-u80-r1-20261119-205216,False
+1,unit,160,1,/predict,1795,59.84,59.8,1900.0,2700.0,2800.0,0.0,97.4,59.2,297.9,lt-w1-unit-u160-r1-20261119-205216,False
+2,unit,80,1,/predict,2261,75.44,75.4,32.0,150.0,510.0,0.0,88.3,55.0,620.0,lt-w2-unit-u80-r1-20261119-205216,True
+2,unit,160,1,/predict,3421,114.04,114.0,290.0,1100.0,1400.0,0.0,129.9,80.3,625.7,lt-w2-unit-u160-r1-20261119-205216,False
+4,unit,80,1,/predict,2285,76.17,76.2,23.0,120.0,570.0,0.0,84.5,53.7,1197.6,lt-w4-unit-u80-r1-20261119-205216,True
+4,unit,160,1,/predict,4194,139.58,139.6,59.0,630.0,810.0,0.0,135.9,84.6,1204.4,lt-w4-unit-u160-r1-20261119-205216,False
